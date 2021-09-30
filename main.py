@@ -1,7 +1,7 @@
 import os,sys,subprocess
 
 def get_all_terraform_files():
-   files_cmd = subprocess.Popen("find . -type f -name '*var*.tf'", shell=True, stdout=subprocess.PIPE) 
+   files_cmd = subprocess.Popen("find . -type f -name '*.tf'", shell=True, stdout=subprocess.PIPE) 
    return list(filter(None, files_cmd.stdout.read().decode('ascii').split('\n')))
 
 if __name__ == "__main__":
