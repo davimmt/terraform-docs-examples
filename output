@@ -1,0 +1,23 @@
+Working on [./vpc-module/vpc00.tf] file
+  Grouping file to its path README.md
+Working on [./vpc-module/vpc01.tf] file
+  Grouping file to its path README.md
+Working on [./module/main00.tf] file
+  Grouping file to its path README.md
+Working on [./module/main01.tf] file
+  Grouping file to its path README.md
+Working on [./ec2-module/ec200.tf] file
+  Grouping file to its path README.md
+Working on [./ec2-module/ec201.tf] file
+  Grouping file to its path README.md
+Working on [./eks-module/eks00.tf] file
+  Grouping file to its path README.md
+Working on [./eks-module/eks01.tf] file
+  Grouping file to its path README.md
+
+Grouping all lines from the files to their path README.md
+
+Writing [./vpc-module/README.md] file
+Writing [./module/README.md] file
+Writing [./ec2-module/README.md] file
+Writing [./eks-module/README.md] file
