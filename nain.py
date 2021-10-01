@@ -2,195 +2,114 @@ import os,sys,subprocess
 from itertools import islice
 
 def get_all_terraform_files():
-    """Returns a list with path/name of the chosen files. 
+    """Returns a list with path/name of the chosen files.
 
     Uses the Unix 'find' package to recursivly search the
-    specified files in the defined scope. 
+    specified files in the defined scope.
     """
-    files_cmd = subprocess.Popen("find . -type f -name '*.tf'", shell=True, stdout=subprocess.PIPE)
+    files_cmd = subprocess.Popen("find . -type f -wholename '*-module/*.tf'", shell=True, stdout=subprocess.PIPE) 
     return list(filter(None, files_cmd.stdout.read().decode('ascii').split('\n')))
 
-def remove_whitespaces(string):
-    """Returns a string completly stripped.
-
-    Replaces all whitespaces between chars with only one whitespace,
-    and removes all trailling whitespaces.
-    """
-    while '  ' in string: string = string.replace('  ', ' ')
-    return string.strip()
-
-def get_raw_lines(file_lines):
-    """Returns a list of all the lines.
-
-    Reads all the lines and uses the remove_whitespaces()
-    for each string, and stores in a list.
-    """
-    raw_lines = []
-    for line in file_lines:
-        line = remove_whitespaces(line)
-        if line != '': raw_lines.append(line)
-    return raw_lines
-
-def ignore_block(i, lines):
-    """Returns a list of lines to ignore when HCL-formatting.
-
-    Reads all the lines below the defined string (in the main), and
-    stores all the line numbers that are inside that block in a list.
-    """
-    child_i = i
-    lines_to_ignore = [child_i]
-    bracket_count = 0
-    for line in islice(lines, i, None):
-        if '{' in line: bracket_count += 1
-        if '}' in line: bracket_count -= 1
-        if bracket_count != 0:
-            child_i += 1
-            lines_to_ignore.append(child_i)
-        else:
-            break 
-    return lines_to_ignore
-
 if __name__ == "__main__":
-    files = get_all_terraform_files()
+    files = get_all_terraform_files() 
+
+    output_content = {}
+    metadata = {}
     for file in files:
         print('Working on [%s] file' % (file))
-        
-        print(' 1. Reading file and removing all spaces and indentation')
-        raw_lines = get_raw_lines(open(file, 'r').readlines())
-        
-        print(' 2. Breaking lines')
-        spaced_lines = []
-        for i, line in enumerate(raw_lines):
-            jump_line = 0
+        source_path = os.path.dirname(file)
+        module_name = source_path.split('/')[-1].split('-module')[0]
+        output_file = source_path + '/README.md'
+        metadata[output_file] = {'source': source_path, 'module': module_name}
 
-            # Avoid index errors
-            if i < (len(raw_lines) - 1):
-                next_line = raw_lines[i+1]
-                
-                # Custom (not to break)
-                if not line == 'locals {' and \
-                not line == 'terraform {' and \
-                not line == 'required_providers {' and \
-                not line.startswith('#') and \
-                not next_line == 'rules = var.rule_self ? concat(var.rules, [{' and \
-                not next_line == 'backend "s3" {' and \
-                not next_line == 'required_providers {' and \
-                not next_line == 'awsutils = {' and \
-                not next_line == 'listener_tags = merge(var.tags, {' and \
-                len(next_line) > 1:
+        print('  Grouping file to its path README.md')
+        if not output_file in output_content: output_content[output_file] = {'files': [], 'lines': []}
+        output_content[output_file]['files'].append(file)
 
-                    # Custom (to break)
-                    if next_line.count('{') > next_line.count('}') and not '=> {' in next_line: jump_line = 1
-                    if next_line.count('[') > next_line.count(']') and not ': [' in next_line: jump_line = 1
-                    if next_line.startswith('#'): jump_line = 1
-                    if line.startswith('}') and not next_line.startswith('}'): jump_line = 1
-                    if line.startswith(']') and not next_line.startswith(']'): jump_line = 1
+    print('\nGrouping all lines from the files to their path README.md\n')
+    for output_file in output_content: 
+        for file in output_content[output_file]['files']:
+            lines = open(file, 'r').readlines()
+            
+            # Getting all variable blocks
+            for i, line in enumerate(lines):
+                stripped_line = line.strip()
+                variable_blocks = []
+                if stripped_line.startswith('variable') and stripped_line.endswith('{'): 
+                    variable_blocks.append(line)
+                    indentation = 0
+                    for line_ in islice(lines, i, None): 
+                        # Gambiarra aqui
+                        if '[]' in line_ or '{}' in line_: variable_blocks.append(line_)
+                        
+                        if '}' in line_ or ']' in line_: indentation -= 1
+                        if indentation != 0: variable_blocks.append(line_)
+                        if '{' in line_ or '[' in line_: indentation += 1
+                        
+                        if indentation == 0: break
+                    output_content[output_file]['lines'].append(variable_blocks)
 
-                    if jump_line: spaced_lines.append(line + '\n')
-                    else: spaced_lines.append(line)
+        # Grouping all variables together
+        names = []
+        examples = []
+        for blocks in output_content[output_file]['lines']:
+            var_name = [line for line in blocks if line.strip().startswith('variable')][0].split('"')[1]
+            var_default = [line for line in blocks if line.strip().startswith('default')]
+            var_type = [line for line in blocks if line.strip().startswith('type')]
+            
+            # For getting bigger name
+            names.append(var_name)
 
-                else: spaced_lines.append(line)
-            else: spaced_lines.append(line)
+            # In case the default attribute is not a one-liner
+            default_block = []
+            for i, line in enumerate(blocks):
+                if 'default' in line and ('{' in line or '[' in line) and not ('{}' in line or '[]' in line):
+                    for line_ in islice(blocks, i, None):
+                        if '{' in line_ or '[' in line_: bracket_count += 1
+                        if '}' in line_ or ']' in line_: bracket_count -= 1
+                        if bracket_count == 0: break
+                        else: default_block.append(line_)
 
-        print(' 3. Re-indenting lines')
-        indented_lines = []
-        indentation = 0
-        for i, line in enumerate(spaced_lines):
-            # Indent down current line
-            if ('{' in line and '}' in line) or \
-               (']' in line and '[' in line):
-                if (line.count('{') < line.count('}')) or \
-                   (line.count('[') < line.count(']')):
-                    indentation -= 1
-            if ('}' in line and not '{' in line) or \
-               (']' in line and not '[' in line):
-                indentation -= 1
+            # In case the type attribute is not a one-liner
+            type_block = []
+            bracket_count = 0
+            for i, line in enumerate(blocks):
+                if 'type' in line and ('{' in line or '[' in line):
+                    for line_ in islice(blocks, i, None):
+                        if '{' in line_ or '[' in line_: bracket_count += 1
+                        if '}' in line_ or ']' in line_: bracket_count -= 1
+                        if bracket_count == 0: break
+                        else: type_block.append(line_)
+            
+            if len(default_block) != 0: 
+                var_default = ''.join(default_block).split('=', 1)[1].strip()
+                var_default = var_default.replace('list(', '[').replace('object(', '')
+                if var_default[-1] != '}' or var_type[-1] != ']':
+                    if '[' in var_default: var_default += '\n  ]'
+                    if '{' in var_default: var_default += '\n  }'
+            elif len(var_default) == 1: var_default = var_default[0].split('=', 1)[1].strip()
+            else: var_default = "__required__"
 
-            # Storing indented and current line
-            tabbing = '  ' * indentation
-            indented_line = tabbing + line
-            indented_lines.append(indented_line)
+            if len(type_block) != 0: 
+                var_type = ''.join(type_block).split('=', 1)[1].strip()
+                var_type = var_type.replace('list(', '[').replace('object(', '')
+                if var_type[-1] != '}' or var_type[-1] != ']':
+                    if '[' in var_type and not '{' in var_type: var_type += '\n  ]'
+                    if '{' in var_type and not '[' in var_type: var_type += '\n  }'
+            elif len(var_type) == 1: var_type = var_type[0].split('=', 1)[1].strip()
+            else: var_type = "string"
 
-            # Indent up next line
-            if ('{' in line and '}' in line) or \
-               (']' in line and '[' in line):
-                if (line.count('{') > line.count('}')) or \
-                   (line.count('[') > line.count(']')):
-                    indentation += 1
-            elif ('{' in line and not '}' in line) or \
-                 ('[' in line and not ']' in line):
-                indentation += 1
+            examples.append([{'name': var_name, 'default': var_default, 'type': var_type}])
+            padding = len(max(names, key=len))
 
-        print(' 4. Tagging lines not to format with HCL right padding')
-        lines_to_ignore = []
-        for i, line in enumerate(indented_lines):
-            # Break lines
-            if not line.strip(): lines_to_ignore.append(i)
-            # Comentaries
-            if line.startswith('#'): lines_to_ignore.append(i)
-            # Lines with no equal sign
-            elif not ' = ' in line: lines_to_ignore.append(i)
-            # Lines that begin new blocks
-            elif (line.count('{') > line.count('}')) or \
-                 (line.count('[') > line.count(']')):
-                lines_to_ignore.append(i)
-
-            # Custom lines
-            elif line == 'variable "region" { default = "us-east-1" }': lines_to_ignore.append(i)
-            elif line == 'provider "aws" { region = var.region }': lines_to_ignore.append(i)
-            elif line == 'locals { caller = data.aws_caller_identity.current.arn }': lines_to_ignore.append(i)
-
-            # Data block
-            #if line.startswith('data "') and '{' in line: lines_to_ignore += ignore_block(i, indented_lines)
-            # Locals block
-            #if line.startswith('locals {'): lines_to_ignore += ignore_block(i, indented_lines)
-        
-        lines_to_ignore.sort()
-
-        print(' 5. Grouping blocks of lines')
-        lines_group = []
-        group = 0
-        for i, line in enumerate(indented_lines):
-            if i in lines_to_ignore:
-                lines_group.append(-1)
-                group += 1
-            else:
-                lines_group.append(group)
-
-        blocks_group = {}
-        helper = 0 
-        for i, line in enumerate(indented_lines): 
-            # Not ignored lines
-            if lines_group[i] != -1:
-                line_len = len(line.split('=', 1)[0].strip())
-                if not lines_group[i] in blocks_group: 
-                    blocks_group[lines_group[i]] = line_len
-                    helper = line_len
-                else:
-                    if blocks_group[lines_group[i]] != helper: 
-                        blocks_group[lines_group[i]] = line_len
-                        helper = line_len
-                    elif line_len > blocks_group[lines_group[i]]:
-                        blocks_group[lines_group[i]] = line_len
-                        helper = line_len
-
-        print(' 6. Trucating and rewriting file HCL-style')
-        with open(file, 'w') as formated_file:
-            formated_file.truncate()
-            for i, line in enumerate(indented_lines):
-                if not i in lines_to_ignore:
-                    key_value = line.split('=', 1)
-                    key = key_value[0].rstrip()
-                    key_value.pop(0)
-                    value = ''.join(str(item) for item in key_value)
-                    
-                    # HCL-like before '=' padding
-                    indentation = len(key) - len(key.lstrip())
-                    padding = blocks_group[lines_group[i]]
-                    key = key.ljust((indentation + padding), ' ')
-
-                    formated_file.write('%s =%s\n' % (key, value))
-                else:
-                    formated_file.write(line + '\n')
-        
-        print('Completed!\n')
+        with open(output_file, 'w') as out_file:
+            out_file.write('<!-- BEGIN_TF_EXAMPLES -->\n')
+            out_file.write('```hcl\n')
+            out_file.write('module "%s" {\n' % metadata[output_file]['module'])
+            out_file.write('  %s = %s\n' % ('source'.ljust(padding, ' '), metadata[output_file]['source']))
+            for block in examples:
+                for example in block:
+                    out_file.write('  %s = %s [%s]\n' % (example['name'].ljust(padding, ' '), example['type'], example['default']))
+            out_file.write('}\n')
+            out_file.write('```\n')
+            out_file.write('<!-- END_TF_EXAMPLES -->\n')
