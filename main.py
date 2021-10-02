@@ -26,7 +26,7 @@ if __name__ == "__main__":
         readmes[readme] = {'metadata': {'module': module, 'source': path}, 'data': []}
         for file in [files for files in paths[path]]:
             for line in open('%s/%s' % (path, file), 'r').readlines():
-                while '  ' in line: line = line.replace('  ', ' ').strip()
+                #while '  ' in line: line = line.replace('  ', ' ').strip()
                 while '\n' in line: line = line.replace('\n', '')
                 if line: readmes[readme]['data'].append(line)
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
         inside_block = False
         block_count = 0
         for i, line in enumerate(readmes[readme]['data']):
-            if line.startswith('variable'): inside_block = True
+            if line.strip().startswith('variable'): inside_block = True
             if inside_block:
                 if '{' in line or '[' in line: block_count += 1
                 if '}' in line or ']' in line: block_count -= 1
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         block = []
         for i, line in enumerate(readmes[readme]['data']):
             if i not in lines_to_ignore[readme]:
-                if line.startswith('variable'): 
+                if line.strip().startswith('variable'): 
                     if len(block) > 0: blocks[readme]['data'].append(block)
                     block = [line]
                 elif i + 1 == len(readmes[readme]['data']): blocks[readme]['data'].append(block)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     @return => {'readme': {'metadata': {'module': 'name', 'source': 'path', 'padding': 'padding'}}, {'data': ['line']}}
     """
     for readme in readmes:
-        names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if name.startswith('variable')]
+        names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if name.strip().startswith('variable')]
         readmes[readme]['metadata']['padding'] = len(max(names, key = len))
 
     """ Substituting the first lines-based dictionary/list
@@ -83,19 +83,52 @@ if __name__ == "__main__":
         for block in blocks[readme]['data']:
             readmes[readme]['data'].append(block) 
 
+    """ Writing final output to file
+    """
     for readme in readmes:
         with open(readme, 'w') as file:
+            source = 'source'.ljust(readmes[readme]['metadata']['padding'], ' ')
             file.write('<!-- BEGIN_TF_EXAMPLES -->')
             file.write('\nmodule "%s"' % (readmes[readme]['metadata']['module']))
-            file.write('\n  %s = %s' % ('source', readmes[readme]['metadata']['source']))
+            file.write('\n  %s = %s' % (source, readmes[readme]['metadata']['source']))
             
             for block in readmes[readme]['data']:
-                name = [name.split('"')[1].strip() for name in block if name.startswith('variable')][0]
-                type = [type.split('=')[1].strip() for type in block if type.startswith('type')]
-                default = [default.split('=')[1].strip() for default in block if default.startswith('default')]
+                name = [name.split('"')[1].strip() for name in block if name.strip().startswith('variable')][0]
+                name = name.ljust(readmes[readme]['metadata']['padding'], ' ')
+                type = [type.split('=')[1].strip() for type in block if type.strip().startswith('type')]
+                default = [default.split('=')[1].strip() for default in block if default.strip().startswith('default')]
+
+                # Checking for complex types
                 if not type: type = ["string"]
+                elif type[0].count('{') > type[0].count('}') or type[0].count('[') > type[0].count(']'):
+                    inside_block = False
+                    buffer = '  type = ' + type[0]
+                    for line in block:
+                        if line == buffer: inside_block = True
+                        if inside_block:
+                            if '{' in line or '[' in line: block_count += 1
+                            if '}' in line or ']' in line: block_count -= 1
+                            if block_count == 0: inside_block = False
+                            if line != buffer:
+                                type[0] += '\n' + line
+                        else: pass
+                
+                # Checking for complex defaults
                 if not default: default = ["__required__"]
-                file.write('\n  %s = %s' % (name.ljust(readmes[readme]['metadata']['padding'], ' '), type[0]))
+                elif default[0].count('{') > default[0].count('}') or default[0].count('[') > default[0].count(']'):
+                    inside_block = False
+                    buffer = '  default = ' + default[0]
+                    for line in block:
+                        if line == buffer: inside_block = True
+                        if inside_block:
+                            if '{' in line or '[' in line: block_count += 1
+                            if '}' in line or ']' in line: block_count -= 1
+                            if block_count == 0: inside_block = False
+                            if line != buffer:
+                                default[0] += '\n' + line
+                        else: pass
+
+                file.write('\n  %s = %s | %s' % (name, type[0], default[0]))
 
             file.write('\n}')
             file.write('\n<!-- END_TF_EXAMPLES -->')
