@@ -1,8 +1,9 @@
+dauwhdiuawhdiawuhdi
 <!-- BEGIN_TF_EXAMPLES -->
 ## Example
 ```hcl
-module "dummer"
-  source             = ./dummer-module
+module "dummy"
+  source             = ./dummy-module
   environment        = string | __required__
   instance_number    = number | 1
   root_block_device  = object({
@@ -19,3 +20,4 @@ module "dummer"
 }
 ```
 <!-- END_TF_EXAMPLES -->
+dawjdoiawdjoiwaodj

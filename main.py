@@ -16,7 +16,7 @@ if __name__ == "__main__":
     """ Grouping all lines from all files in a directory
         to its respective README.md
      
-    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path'}}, {'data': ['line']}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string}}, {'data': [string]}}
     """
     readmes = {}
     for path in paths:
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     """ Grouping separete variable blocks in lists
     
-    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path'}}, {'data': ['line']}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string}}, {'data': [string]}}
     """
     blocks = {}
     for readme in readmes:
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     
     """ Getting the biggest variable name for HCL-like padding
     
-    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path', 'padding': 'padding'}}, {'data': ['line']}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int}}, {'data': [string]}}
     """
     for readme in readmes:
         names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if name.strip().startswith('variable')]
@@ -76,19 +76,40 @@ if __name__ == "__main__":
     """ Substituting the first lines-based dictionary/list
         to a blocks-based dictionary/list
     
-    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path'}}, {'data': [['block_line']}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int}}, {'data': [[string]]}}
     """ 
     for readme in readmes:
         readmes[readme]['data'] = []
         for block in blocks[readme]['data']:
             readmes[readme]['data'].append(block) 
 
+    """ Checking if README.md file exists
+    
+    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool}}, {'data': [[string]]}}
+    """ 
+    for readme in readmes:
+        try:
+            existing_lines = open(readme, 'r').readlines()
+            readmes[readme]['metadata']['exists'] = True
+        except:
+            readmes[readme]['metadata']['exists'] = False
+        
+        if readmes[readme]['metadata']['exists']:
+            begin_line = [i for i, line in enumerate(existing_lines) if 'BEGIN_TF_EXAMPLES' in line]
+            end_line = [i for i, line in enumerate(existing_lines) if 'END_TF_EXAMPLES' in line]
+
     """ Writing final output to file
     """
     for readme in readmes:
         with open(readme, 'w') as file:
+            if readmes[readme]['metadata']['exists']:
+                for i, line in enumerate(existing_lines):
+                    if begin_line:
+                        if i > begin_line[0] and i < end_line[0]: continue
+                    file.write(line)
+                file.write('\n')
             source = 'source'.ljust(readmes[readme]['metadata']['padding'], ' ')
-            file.write('<!-- BEGIN_TF_EXAMPLES -->')
+            if not readmes[readme]['metadata']['exists']: file.write('<!-- BEGIN_TF_EXAMPLES -->')
             file.write('\n## Example')
             file.write('\n```hcl')
             file.write('\nmodule "%s"' % (readmes[readme]['metadata']['module']))
@@ -134,4 +155,4 @@ if __name__ == "__main__":
 
             file.write('\n}')
             file.write('\n```')
-            file.write('\n<!-- END_TF_EXAMPLES -->')
+            if not readmes[readme]['metadata']['exists']: file.write('\n<!-- END_TF_EXAMPLES -->')
