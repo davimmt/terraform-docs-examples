@@ -89,6 +89,8 @@ if __name__ == "__main__":
         with open(readme, 'w') as file:
             source = 'source'.ljust(readmes[readme]['metadata']['padding'], ' ')
             file.write('<!-- BEGIN_TF_EXAMPLES -->')
+            file.write('\n## Example')
+            file.write('\n```hcl')
             file.write('\nmodule "%s"' % (readmes[readme]['metadata']['module']))
             file.write('\n  %s = %s' % (source, readmes[readme]['metadata']['source']))
             
@@ -102,15 +104,15 @@ if __name__ == "__main__":
                 if not type: type = ["string"]
                 elif type[0].count('{') > type[0].count('}') or type[0].count('[') > type[0].count(']'):
                     inside_block = False
-                    buffer = '  type = ' + type[0]
+                    buffer = type[0]
+                    #buffer = '  type = ' + type[0]
                     for line in block:
-                        if line == buffer: inside_block = True
+                        if buffer in line: inside_block = True
                         if inside_block:
                             if '{' in line or '[' in line: block_count += 1
                             if '}' in line or ']' in line: block_count -= 1
                             if block_count == 0: inside_block = False
-                            if line != buffer:
-                                type[0] += '\n' + line
+                            if not buffer in line: type[0] += '\n' + line
                         else: pass
                 
                 # Checking for complex defaults
@@ -118,17 +120,18 @@ if __name__ == "__main__":
                 elif default[0].count('{') > default[0].count('}') or default[0].count('[') > default[0].count(']'):
                     inside_block = False
                     buffer = '  default = ' + default[0]
+                    #buffer = '  default = ' + default[0]
                     for line in block:
-                        if line == buffer: inside_block = True
+                        if buffer in line: inside_block = True
                         if inside_block:
                             if '{' in line or '[' in line: block_count += 1
                             if '}' in line or ']' in line: block_count -= 1
                             if block_count == 0: inside_block = False
-                            if line != buffer:
-                                default[0] += '\n' + line
+                            if not buffer in line: default[0] += '\n' + line
                         else: pass
 
                 file.write('\n  %s = %s | %s' % (name, type[0], default[0]))
 
             file.write('\n}')
+            file.write('\n```')
             file.write('\n<!-- END_TF_EXAMPLES -->')

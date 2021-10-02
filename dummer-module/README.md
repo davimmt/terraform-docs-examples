@@ -1,4 +1,6 @@
 <!-- BEGIN_TF_EXAMPLES -->
+## Example
+```hcl
 module "dummer"
   source             = ./dummer-module
   environment        = string | __required__
@@ -15,4 +17,5 @@ module "dummer"
   security_group_ids = list | []
   tags               = map | {}
 }
+```
 <!-- END_TF_EXAMPLES -->
