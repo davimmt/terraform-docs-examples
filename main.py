@@ -14,6 +14,7 @@ if __name__ == "__main__":
             paths[dir] += files
 
     """ Grouping all lines from all files in a directory
+        to its respective README.md
      
     @return => {'readme': {'metadata': {'module': 'name', 'source': 'path'}}, {'data': ['line']}}
     """
@@ -49,7 +50,7 @@ if __name__ == "__main__":
 
     """ Grouping separete variable blocks in lists
     
-    @return => {'readme': {'data': [['block_line']]}}
+    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path'}}, {'data': ['line']}}
     """
     blocks = {}
     for readme in readmes:
@@ -64,6 +65,14 @@ if __name__ == "__main__":
                 elif i + 1 == len(readmes[readme]['data']): blocks[readme]['data'].append(block)
                 else: block.append(line)
     
+    """ Getting the biggest variable name for HCL-like padding
+    
+    @return => {'readme': {'metadata': {'module': 'name', 'source': 'path', 'padding': 'padding'}}, {'data': ['line']}}
+    """
+    for readme in readmes:
+        names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if name.startswith('variable')]
+        readmes[readme]['metadata']['padding'] = len(max(names, key = len))
+
     """ Substituting the first lines-based dictionary/list
         to a blocks-based dictionary/list
     
@@ -72,14 +81,21 @@ if __name__ == "__main__":
     for readme in readmes:
         readmes[readme]['data'] = []
         for block in blocks[readme]['data']:
-            readmes[readme]['data'] += block 
+            readmes[readme]['data'].append(block) 
 
     for readme in readmes:
         with open(readme, 'w') as file:
             file.write('<!-- BEGIN_TF_EXAMPLES -->')
             file.write('\nmodule "%s"' % (readmes[readme]['metadata']['module']))
             file.write('\n  %s = %s' % ('source', readmes[readme]['metadata']['source']))
-            for line in [block for block in readmes[readme]['data']]:
-                file.write('\n  %s' % (line))
+            
+            for block in readmes[readme]['data']:
+                name = [name.split('"')[1].strip() for name in block if name.startswith('variable')][0]
+                type = [type.split('=')[1].strip() for type in block if type.startswith('type')]
+                default = [default.split('=')[1].strip() for default in block if default.startswith('default')]
+                if not type: type = ["string"]
+                if not default: default = ["__required__"]
+                file.write('\n  %s = %s' % (name.ljust(readmes[readme]['metadata']['padding'], ' '), type[0]))
+
             file.write('\n}')
             file.write('\n<!-- END_TF_EXAMPLES -->')
