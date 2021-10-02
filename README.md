@@ -2,13 +2,17 @@
 
 Provides you a almost-ready-to-copy-and-paste example on how to call a module using Terraform style.
 
-If you have a file regex-named *var*.tf anywhere from the root where you execute the script (it searches recursivly), it will take it's variables content and write it to a README.md.
+This script will search recursively for any .tf files inside any directory with a '-module' suffix. For each file, it will extract all variable blocks, with its type and default, if present (var_name = var_type | var_default).
 
 Example of file and it's output:
 
-`variable.tf`
+`any.tf`
 ``` 
 ...
+
+module "dummy" {
+  source = dummy
+}
 
 variable "vpc_id" {
   description = "VPC ID"
@@ -24,6 +28,10 @@ variable "ami" {
 variable "public" {
   description = "Whether the instance is public or not"
   type        = bool
+}
+
+resource "dummy" {
+  dummy = dummy
 }
 
 variable "root_block_device" {
@@ -60,25 +68,25 @@ variable "block_devices" {
 ```hcl
 module "ec2" {
   ...
-  vpc_id            = string [__required__]
-  ami               = string ["ami-0f8243a5175208e08"]
-  public            = bool [__required__]
-  shutdown_behavior = string ["terminate"]
+  vpc_id            = string | __required__
+  ami               = string | "ami-0f8243a5175208e08"
+  public            = bool | __required__
+  shutdown_behavior = string | "terminate"
   root_block_device = object({
     encrypted   = bool
     volume_size = number
     volume_type = string
-  }) [{
+  }) | {
     "encrypted"   = true
     "volume_size" = 10
     "volume_type" = "gp3"
-  }]
+  }
   block_devices     = list(object({
     encrypted   = bool
     device_name = string
     volume_size = number
     volume_type = string
-  })) [[]]
+  })) | []
   ...
 }
 <!-- END_TF_EXAMPLES -->

@@ -1,6 +1,56 @@
 import os
 from itertools import islice
 
+def write_to_readme(readme):
+    """ Actually writing final output to file
+
+    This function is called at the end of the script.
+    """
+    source = 'source'.ljust(readme['metadata']['padding'], ' ')
+    if not begin_line: file.write('\n<!-- BEGIN_TF_EXAMPLES -->\n')
+    file.write('## Example')
+    file.write('\n```hcl')
+    file.write('\nmodule "%s"' % (readme['metadata']['module']))
+    file.write('\n  %s = %s' % (source, readme['metadata']['source']))
+    
+    for block in readme['data']:
+        name = [name.split('"')[1].strip() for name in block if name.strip().startswith('variable')][0]
+        name = name.ljust(readme['metadata']['padding'], ' ')
+        type = [type.split('=')[1].strip() for type in block if type.strip().startswith('type')]
+        default = [default.split('=')[1].strip() for default in block if default.strip().startswith('default')]
+
+        # Checking for complex types
+        if not type: type = ["string"]
+        elif type[0].count('{') > type[0].count('}') or type[0].count('[') > type[0].count(']'):
+            inside_block = False
+            block_count = 0
+            for line in block:
+                if ' type ' in line: inside_block = True
+                if inside_block:
+                    if '{' in line or '[' in line: block_count += 1
+                    if '}' in line or ']' in line: block_count -= 1
+                    if block_count == 0: inside_block = False
+                    if not ' type ' in line: type[0] += '\n' + line
+        
+        # Checking for complex defaults
+        if not default: default = ["__required__"]
+        elif default[0].count('{') > default[0].count('}') or default[0].count('[') > default[0].count(']'):
+            inside_block = False
+            block_count = 0
+            for line in block:
+                if ' default ' in line: inside_block = True
+                if inside_block:
+                    if '{' in line or '[' in line: block_count += 1
+                    if '}' in line or ']' in line: block_count -= 1
+                    if block_count == 0: inside_block = False
+                    if not ' default ' in line: default[0] += '\n' + line
+
+        file.write('\n  %s = %s | %s' % (name, type[0], default[0]))
+
+    file.write('\n}')
+    file.write('\n```\n')
+    if not begin_line: file.write('<!-- END_TF_EXAMPLES -->\n')
+
 if __name__ == "__main__":
     """ Getting all *-module directories and its *.tf files
     
@@ -99,60 +149,28 @@ if __name__ == "__main__":
             end_line = [i for i, line in enumerate(existing_lines) if 'END_TF_EXAMPLES' in line]
 
     """ Writing final output to file
+
+    Here will be "decided" if it's a file creation (no previous README.md),
+    a block creation (README.md exists, but doesn't have this script markers) or
+    a block update (README.md exists as well as the script's markers).
+
+    For each of these situations, the function write_to_readme() is called differently.
     """
     for readme in readmes:
         with open(readme, 'w') as file:
-            if readmes[readme]['metadata']['exists']:
+            # If README.md does not exists
+            if not readmes[readme]['metadata']['exists']: write_to_readme(readmes[readme])
+
+            # If README.md exists
+            else:
                 for i, line in enumerate(existing_lines):
+                    # Update
                     if begin_line:
-                        if i > begin_line[0] and i < end_line[0]: continue
-                    file.write(line)
-                file.write('\n')
-            source = 'source'.ljust(readmes[readme]['metadata']['padding'], ' ')
-            if not readmes[readme]['metadata']['exists']: file.write('<!-- BEGIN_TF_EXAMPLES -->')
-            file.write('\n## Example')
-            file.write('\n```hcl')
-            file.write('\nmodule "%s"' % (readmes[readme]['metadata']['module']))
-            file.write('\n  %s = %s' % (source, readmes[readme]['metadata']['source']))
-            
-            for block in readmes[readme]['data']:
-                name = [name.split('"')[1].strip() for name in block if name.strip().startswith('variable')][0]
-                name = name.ljust(readmes[readme]['metadata']['padding'], ' ')
-                type = [type.split('=')[1].strip() for type in block if type.strip().startswith('type')]
-                default = [default.split('=')[1].strip() for default in block if default.strip().startswith('default')]
+                        if i > begin_line[0] and i < end_line[0]: 
+                            if i == begin_line[0] + 1: write_to_readme(readmes[readme])
+                        else: file.write(line)
 
-                # Checking for complex types
-                if not type: type = ["string"]
-                elif type[0].count('{') > type[0].count('}') or type[0].count('[') > type[0].count(']'):
-                    inside_block = False
-                    buffer = type[0]
-                    #buffer = '  type = ' + type[0]
-                    for line in block:
-                        if buffer in line: inside_block = True
-                        if inside_block:
-                            if '{' in line or '[' in line: block_count += 1
-                            if '}' in line or ']' in line: block_count -= 1
-                            if block_count == 0: inside_block = False
-                            if not buffer in line: type[0] += '\n' + line
-                        else: pass
-                
-                # Checking for complex defaults
-                if not default: default = ["__required__"]
-                elif default[0].count('{') > default[0].count('}') or default[0].count('[') > default[0].count(']'):
-                    inside_block = False
-                    buffer = '  default = ' + default[0]
-                    #buffer = '  default = ' + default[0]
-                    for line in block:
-                        if buffer in line: inside_block = True
-                        if inside_block:
-                            if '{' in line or '[' in line: block_count += 1
-                            if '}' in line or ']' in line: block_count -= 1
-                            if block_count == 0: inside_block = False
-                            if not buffer in line: default[0] += '\n' + line
-                        else: pass
-
-                file.write('\n  %s = %s | %s' % (name, type[0], default[0]))
-
-            file.write('\n}')
-            file.write('\n```')
-            if not readmes[readme]['metadata']['exists']: file.write('\n<!-- END_TF_EXAMPLES -->')
+                    # Create
+                    else: file.write(line)
+                # Create
+                if not begin_line: write_to_readme(readmes[readme])
