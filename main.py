@@ -135,18 +135,18 @@ if __name__ == "__main__":
 
     """ Checking if README.md file exists
     
-    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool}}, {'data': [[string]]}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool}}, {'data': [[string]], {'existing_data': [string]}}}
     """ 
     for readme in readmes:
         try:
-            existing_lines = open(readme, 'r').readlines()
+            readmes[readme]['existing_data'] = open(readme, 'r').readlines()
             readmes[readme]['metadata']['exists'] = True
         except:
             readmes[readme]['metadata']['exists'] = False
         
         if readmes[readme]['metadata']['exists']:
-            begin_line = [i for i, line in enumerate(existing_lines) if 'BEGIN_TF_EXAMPLES' in line]
-            end_line = [i for i, line in enumerate(existing_lines) if 'END_TF_EXAMPLES' in line]
+            begin_line = [i for i, line in enumerate(readmes[readme]['existing_data']) if 'BEGIN_TF_EXAMPLES' in line]
+            end_line = [i for i, line in enumerate(readmes[readme]['existing_data']) if 'END_TF_EXAMPLES' in line]
 
     """ Writing final output to file
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
             # If README.md exists
             else:
-                for i, line in enumerate(existing_lines):
+                for i, line in enumerate(readmes[readme]['existing_data']):
                     # Update
                     if begin_line:
                         if i > begin_line[0] and i < end_line[0]: 
