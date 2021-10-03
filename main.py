@@ -7,7 +7,7 @@ def write_to_readme(readme):
     This function is called at the end of the script.
     """
     source = 'source'.ljust(readme['metadata']['padding'], ' ')
-    if not begin_line: file.write('\n<!-- BEGIN_TF_EXAMPLES -->\n')
+    if not readme['metadata']['markers']['begin']: file.write('\n<!-- BEGIN_TF_EXAMPLES -->\n')
     file.write('## Example')
     file.write('\n```hcl')
     file.write('\nmodule "%s"' % (readme['metadata']['module']))
@@ -49,7 +49,7 @@ def write_to_readme(readme):
 
     file.write('\n}')
     file.write('\n```\n')
-    if not begin_line: file.write('<!-- END_TF_EXAMPLES -->\n')
+    if not readme['metadata']['markers']['begin']: file.write('<!-- END_TF_EXAMPLES -->\n')
 
 if __name__ == "__main__":
     """ Getting all *-module directories and its *.tf files
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     """ Checking if README.md file exists
     
-    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool}}, {'data': [[string]], {'existing_data': [string]}}}
+    @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool, 'markers': {'begin': [int], 'end': [int]}}, {'data': [[string]]}, {'existing_data': [string]}}
     """ 
     for readme in readmes:
         try:
@@ -145,8 +145,9 @@ if __name__ == "__main__":
             readmes[readme]['metadata']['exists'] = False
         
         if readmes[readme]['metadata']['exists']:
-            begin_line = [i for i, line in enumerate(readmes[readme]['existing_data']) if 'BEGIN_TF_EXAMPLES' in line]
-            end_line = [i for i, line in enumerate(readmes[readme]['existing_data']) if 'END_TF_EXAMPLES' in line]
+            readmes[readme]['metadata']['markers'] = {}
+            readmes[readme]['metadata']['markers']['begin'] = [i for i, line in enumerate(readmes[readme]['existing_data']) if line.strip() == '<!-- BEGIN_TF_EXAMPLES -->']
+            readmes[readme]['metadata']['markers']['end'] = [i for i, line in enumerate(readmes[readme]['existing_data']) if line.strip() == '<!-- END_TF_EXAMPLES -->']
 
     """ Writing final output to file
 
@@ -165,12 +166,12 @@ if __name__ == "__main__":
             else:
                 for i, line in enumerate(readmes[readme]['existing_data']):
                     # Update
-                    if begin_line:
-                        if i > begin_line[0] and i < end_line[0]: 
-                            if i == begin_line[0] + 1: write_to_readme(readmes[readme])
+                    if readmes[readme]['metadata']['markers']['begin']:
+                        if i > readmes[readme]['metadata']['markers']['begin'][0] and i < readmes[readme]['metadata']['markers']['end'][0]: 
+                            if i == (readmes[readme]['metadata']['markers']['begin'][0] + 1): write_to_readme(readmes[readme])
                         else: file.write(line)
 
                     # Create
                     else: file.write(line)
                 # Create
-                if not begin_line: write_to_readme(readmes[readme])
+                if not readmes[readme]['metadata']['markers']['begin']: write_to_readme(readmes[readme])
