@@ -10,8 +10,8 @@ def write_to_readme(readme):
     if not readme['metadata']['markers']['begin']: file.write('\n<!-- BEGIN_TF_EXAMPLES -->\n')
     file.write('## Example')
     file.write('\n```hcl')
-    file.write('\nmodule "%s"' % (readme['metadata']['module']))
-    file.write('\n  %s = %s' % (source, readme['metadata']['source']))
+    file.write('\nmodule "%s" {' % (readme['metadata']['module']))
+    file.write('\n  %s = "%s"' % (source, readme['metadata']['source']))
     
     for block in readme['data']:
         name = [name.split('"')[1].strip() for name in block if name.strip().startswith('variable')][0]
@@ -114,7 +114,7 @@ if __name__ == "__main__":
                     block = [line]
                 elif i + 1 == len(readmes[readme]['data']): blocks[readme]['data'].append(block)
                 else: block.append(line)
-    
+
     """ Getting the biggest variable name for HCL-like padding
     
     @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int}}, {'data': [string]}}
