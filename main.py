@@ -107,13 +107,18 @@ if __name__ == "__main__":
         blocks[readme] = {}
         blocks[readme]['data'] = []
         block = []
+        previous_block_name = ""
         for i, line in enumerate(readmes[readme]['data']):
             if i not in lines_to_ignore[readme]:
-                if line.strip().startswith('variable'): 
-                    if len(block) > 0: blocks[readme]['data'].append(block)
+                # Separating blocks
+                if line.strip().startswith('variable'):
                     block = [line]
-                elif i + 1 == len(readmes[readme]['data']): blocks[readme]['data'].append(block)
                 else: block.append(line)
+
+                # Appending to dict
+                if line.strip().startswith('variable') and line != previous_block_name:
+                    blocks[readme]['data'].append(block)
+                    previous_block_name = line
 
     """ Getting the biggest variable name for HCL-like padding
     
