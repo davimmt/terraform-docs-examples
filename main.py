@@ -14,7 +14,7 @@ def write_to_readme(readme):
     file.write('\n  %s = "%s"' % (source, readme['metadata']['source']))
     
     for block in readme['data']:
-        name = [name.split('"')[1].strip() for name in block if name.strip().startswith('variable')][0]
+        name = [name.split('"')[1].strip() for name in block if " ".join(name.split()).startswith('variable "')][0]
         name = name.ljust(readme['metadata']['padding'], ' ')
         type = [type.split('=')[1].strip() for type in block if type.strip().startswith('type')]
         default = [default.split('=')[1].strip() for default in block if default.strip().startswith('default')]
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         inside_block = False
         block_count = 0
         for i, line in enumerate(readmes[readme]['data']):
-            if line.strip().startswith('variable'): inside_block = True
+            if " ".join(line.split()).startswith('variable "'): inside_block = True
             if inside_block:
                 if '{' in line or '[' in line: block_count += 1
                 if '}' in line or ']' in line: block_count -= 1
@@ -111,12 +111,12 @@ if __name__ == "__main__":
         for i, line in enumerate(readmes[readme]['data']):
             if i not in lines_to_ignore[readme]:
                 # Separating blocks
-                if line.strip().startswith('variable'):
+                if " ".join(line.split()).startswith('variable "'):
                     block = [line]
                 else: block.append(line)
 
                 # Appending to dict
-                if line.strip().startswith('variable') and line != previous_block_name:
+                if " ".join(line.split()).startswith('variable "') and line != previous_block_name:
                     blocks[readme]['data'].append(block)
                     previous_block_name = line
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int}}, {'data': [string]}}
     """
     for readme in readmes:
-        names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if name.strip().startswith('variable')]
+        names = [name.split('"')[1].strip() for name in readmes[readme]['data'] if " ".join(name.split()).startswith('variable "')]
         readmes[readme]['metadata']['padding'] = len(max(names, key = len))
 
     """ Substituting the first lines-based dictionary/list
