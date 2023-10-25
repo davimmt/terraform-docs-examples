@@ -143,14 +143,16 @@ if __name__ == "__main__":
     @return => {'readme': {'metadata': {'module': string, 'source': string, 'padding': int, 'exists': bool, 'markers': {'begin': [int], 'end': [int]}}, {'data': [[string]]}, {'existing_data': [string]}}
     """ 
     for readme in readmes:
+        readmes[readme]['metadata']['markers'] = {}
         try:
             readmes[readme]['existing_data'] = open(readme, 'r').readlines()
             readmes[readme]['metadata']['exists'] = True
         except:
             readmes[readme]['metadata']['exists'] = False
+            readmes[readme]['metadata']['markers']['begin'] = 0
+            readmes[readme]['metadata']['markers']['end'] = 0
         
         if readmes[readme]['metadata']['exists']:
-            readmes[readme]['metadata']['markers'] = {}
             readmes[readme]['metadata']['markers']['begin'] = [i for i, line in enumerate(readmes[readme]['existing_data']) if line.strip() == '<!-- BEGIN_TF_EXAMPLES -->']
             readmes[readme]['metadata']['markers']['end'] = [i for i, line in enumerate(readmes[readme]['existing_data']) if line.strip() == '<!-- END_TF_EXAMPLES -->']
 
