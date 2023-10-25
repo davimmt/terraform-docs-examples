@@ -57,7 +57,7 @@ if __name__ == "__main__":
     @return => {'./dir-module': ['file.tf']}
     """
     paths = {}
-    for dir in [dir[0] for dir in os.walk('.') if dir[0].endswith('-module')]:
+    for dir in [dir[0] for dir in os.walk('.')]:
         files = [file for file in os.listdir(dir) if file.endswith('.tf')]
         if files:
             paths[dir] = []
