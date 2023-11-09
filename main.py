@@ -71,7 +71,7 @@ if __name__ == "__main__":
     readmes = {}
     for path in paths:
         module = path.split('/')[-1].split('-module')[0]
-        readme = path + '/README.md'
+        readme = os.getenv("TERRAFORM_EXAMPLES_OUTPUT_PATH", path + '/README.md')
         
         readmes[readme] = {'metadata': {'module': module, 'source': path}, 'data': []}
         for file in [files for files in paths[path]]:
